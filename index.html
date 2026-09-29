@@ -5,99 +5,72 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LNChat</title>
 
+    <!-- PeerJS handles WebRTC signaling -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
     <style>
+        /* ---------- Theme colors ---------- */
         :root {
-            --window-bg: #202124;
-            --panel-bg: #292a2d;
+            --bg: #202124;
+            --panel: #292a2d;
             --input-bg: #18191b;
             --border: #45474b;
-            --border-light: #5b5e63;
             --text: #eeeeee;
             --muted: #a9adb3;
-            --highlight: #3d4147;
+            --hover: #3d4147;
             --button: #35383d;
             --button-hover: #45494f;
-            --message-me: #3b3e43;
+            --msg-me: #3b3e43;
             --danger: #d34b4b;
+            --online: #55b86a;
+            --away: #d5a943;
         }
 
-        body.light {
-            --window-bg: #f1f1f1;
-            --panel-bg: #ffffff;
-            --input-bg: #ffffff;
-            --border: #c9c9c9;
-            --border-light: #a8a8a8;
-            --text: #202124;
-            --muted: #686868;
-            --highlight: #e5e5e5;
-            --button: #eeeeee;
-            --button-hover: #dedede;
-            --message-me: #e2e2e2;
-        }
-
-        * {
-            box-sizing: border-box;
-        }
+        /* ---------- Base ---------- */
+        * { box-sizing: border-box; }
 
         body {
             height: 100vh;
             margin: 0;
             overflow: hidden;
-            background: var(--window-bg);
+            background: var(--bg);
             color: var(--text);
             font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
             font-size: 14px;
         }
 
-        button,
-        input {
-            font: inherit;
-        }
+        button, input { font: inherit; }
 
         button {
-            border: 1px solid var(--border-light);
+            border: 1px solid #5b5e63;
             border-radius: 4px;
             background: var(--button);
             color: var(--text);
             cursor: pointer;
         }
-
-        button:hover {
-            background: var(--button-hover);
-        }
-
-        button:disabled {
-            cursor: default;
-            opacity: 0.5;
-        }
+        button:hover { background: var(--button-hover); }
+        button:disabled { opacity: 0.5; cursor: default; }
 
         input {
             width: 100%;
+            padding: 8px 10px;
             border: 1px solid var(--border);
             border-radius: 4px;
             background: var(--input-bg);
             color: var(--text);
             outline: none;
         }
+        input:focus { border-color: #777; }
 
-        input:focus {
-            border-color: #777;
-        }
-
-        #app {
-            display: flex;
-            width: 100%;
-            height: 100%;
-        }
+        /* ---------- Layout ---------- */
+        #app { display: flex; width: 100%; height: 100%; }
 
         #sidebar {
             display: flex;
             flex-direction: column;
-            width: 280px;
+            width: 260px;
             min-width: 220px;
-            background: var(--panel-bg);
+            background: var(--panel);
             border-right: 1px solid var(--border);
         }
 
@@ -106,59 +79,31 @@
             border-bottom: 1px solid var(--border);
         }
 
-        .brand-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 12px;
-        }
-
-        .brand-row h2 {
-            margin: 0;
+        h2 {
+            margin: 0 0 12px;
             font-size: 18px;
             font-weight: 500;
         }
 
-        #theme-btn {
-            width: 32px;
-            height: 30px;
-            padding: 0;
-            font-size: 16px;
-        }
-
-        .current-user {
+        /* Shows "You: <id>" once connected */
+        #current-user {
             margin-bottom: 12px;
             padding: 6px 8px;
             border-radius: 4px;
-            background: var(--highlight);
+            background: var(--hover);
             color: var(--muted);
             font-size: 12px;
+            white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            white-space: nowrap;
-            cursor: pointer;
         }
 
-        .current-user:hover {
-            background: var(--button-hover);
-        }
+        /* Row with peer ID input and Connect button */
+        .connect-row { display: flex; gap: 6px; }
+        .connect-row input { min-width: 0; }
+        .connect-row button { padding: 0 11px; white-space: nowrap; }
 
-        .connection-form {
-            display: flex;
-            gap: 6px;
-        }
-
-        .connection-form input {
-            min-width: 0;
-            padding: 8px 9px;
-        }
-
-        .connection-form button {
-            width: auto;
-            padding: 0 11px;
-            white-space: nowrap;
-        }
-
+        /* ---------- Contact list ---------- */
         #contact-list {
             flex: 1;
             overflow-y: auto;
@@ -167,7 +112,7 @@
             list-style: none;
         }
 
-        .contact-item {
+        .contact {
             display: flex;
             align-items: center;
             gap: 8px;
@@ -176,78 +121,49 @@
             border-bottom: 1px solid var(--border);
             cursor: pointer;
         }
-
-        .contact-item:hover {
-            background: var(--highlight);
-        }
-
-        .contact-item.active {
-            background: var(--highlight);
-            box-shadow: inset 3px 0 0 var(--text);
-        }
+        .contact:hover,
+        .contact.active { background: var(--hover); }
+        .contact.active { box-shadow: inset 3px 0 0 var(--text); }
 
         .contact-name {
-            flex: 1 1 auto;
+            flex: 1;
             min-width: 0;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
         }
 
-        .status-dot {
+        /* Colored presence dot */
+        .dot {
             width: 9px;
             height: 9px;
             flex: 0 0 9px;
-            margin: 0;
             border-radius: 50%;
             background: var(--danger);
         }
+        .dot.online  { background: var(--online); }
+        .dot.away    { background: var(--away); }
 
-        .status-dot.online {
-            background: #55b86a;
-        }
-
-        .status-dot.away {
-            background: #d5a943;
-        }
-
-        .status-dot.offline {
-            background: var(--danger);
-        }
-
-        .remove-contact {
-            flex: 0 0 22px;
+        /* Small × button on each row */
+        .remove {
             width: 22px;
             height: 22px;
             padding: 0;
             border: none;
-            border-radius: 4px;
             background: transparent;
             color: var(--muted);
             font-size: 15px;
             line-height: 1;
             opacity: 0.35;
         }
+        .contact:hover .remove,
+        .contact.active .remove { opacity: 1; }
+        .remove:hover { background: var(--danger); color: #fff; }
 
-        .contact-item:hover .remove-contact,
-        .contact-item.active .remove-contact,
-        .remove-contact:focus-visible {
-            opacity: 1;
-        }
+        /* ---------- Chat area ---------- */
+        #main { display: flex; flex: 1; min-width: 0; flex-direction: column; }
 
-        .remove-contact:hover {
-            background: var(--danger);
-            color: #fff;
-        }
-
-        #main {
-            display: flex;
-            flex: 1;
-            min-width: 0;
-            flex-direction: column;
-        }
-
-        #chat-window {
+        #chat {
             display: flex;
             flex: 1;
             min-height: 0;
@@ -265,13 +181,13 @@
             padding: 4px 4px 14px 0;
         }
 
-        .empty-message {
+        .empty {
             margin: auto;
             color: var(--muted);
             text-align: center;
         }
 
-        .message {
+        .msg {
             max-width: min(70%, 650px);
             padding: 8px 11px;
             border: 1px solid var(--border);
@@ -279,52 +195,23 @@
             overflow-wrap: anywhere;
             white-space: pre-wrap;
         }
+        .msg.me   { align-self: flex-end;   background: var(--msg-me); }
+        .msg.them { align-self: flex-start; background: var(--panel); }
 
-        .message.me {
-            align-self: flex-end;
-            background: var(--message-me);
-        }
+        .msg-sender { display: block; margin-bottom: 3px; color: var(--muted); font-size: 11px; }
+        .msg-time   { display: block; margin-top: 5px;  color: var(--muted); font-size: 11px; }
 
-        .message.them {
-            align-self: flex-start;
-            background: var(--panel-bg);
-        }
-
-        .message-sender {
-            display: block;
-            margin-bottom: 3px;
-            color: var(--muted);
-            font-size: 11px;
-        }
-
-        .message-time {
-            display: block;
-            margin-top: 5px;
-            color: var(--muted);
-            font-size: 11px;
-            font-variant-numeric: tabular-nums;
-        }
-
-        .input-area {
+        .input-row {
             display: flex;
             gap: 7px;
             padding-top: 10px;
             border-top: 1px solid var(--border);
         }
+        .input-row input { flex: 1; min-width: 0; height: 36px; }
+        .input-row button { padding: 0 16px; }
 
-        #message-input {
-            flex: 1;
-            min-width: 0;
-            height: 36px;
-            padding: 8px 10px;
-        }
-
-        #send-btn {
-            width: auto;
-            padding: 0 16px;
-        }
-
-        #overlay {
+        /* ---------- Overlays (setup + confirm) ---------- */
+        .overlay {
             position: fixed;
             inset: 0;
             z-index: 10;
@@ -335,105 +222,101 @@
             background: rgba(20, 21, 22, 0.96);
         }
 
-        body.light #overlay {
-            background: rgba(241, 241, 241, 0.96);
-        }
-
-        .setup-card {
+        .card {
             width: 100%;
-            max-width: 390px;
-            padding: 24px;
-            border: 1px solid var(--border-light);
+            max-width: 360px;
+            padding: 22px;
+            border: 1px solid #5b5e63;
             border-radius: 5px;
-            background: var(--panel-bg);
-            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+            background: var(--panel);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
         }
 
-        .setup-card h1 {
-            margin: 0 0 16px;
-            font-size: 21px;
-            font-weight: 500;
-        }
-
-        .setup-card label {
-            display: block;
-            margin: 0 0 5px;
-            color: var(--muted);
-        }
-
-        .setup-card input {
-            height: 36px;
-            padding: 8px 10px;
-        }
-
-        #start-btn {
-            width: 100%;
-            height: 36px;
-            margin-top: 18px;
-        }
+        .card h1 { margin: 0 0 16px; font-size: 20px; font-weight: 500; }
+        .card label { display: block; margin-bottom: 5px; color: var(--muted); }
+        .card input { height: 36px; }
+        .card button { width: 100%; height: 36px; margin-top: 18px; }
 
         #setup-status {
             min-height: 17px;
             margin: 12px 0 0;
             text-align: center;
             font-size: 12px;
+            color: var(--muted);
         }
+        #setup-status.error { color: #d6a3a3; }
 
+        /* Confirm dialog sits on top of everything */
+        #confirm-overlay {
+            display: none;
+            z-index: 20;
+            background: rgba(20, 21, 22, 0.75);
+        }
+        #confirm-overlay.show { display: flex; }
+
+        #confirm-overlay .card { max-width: 320px; }
+        #confirm-overlay p { margin: 0 0 16px; overflow-wrap: anywhere; }
+
+        .confirm-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+        .confirm-actions button {
+            width: auto;
+            height: auto;
+            margin: 0;
+            padding: 6px 14px;
+        }
+        #confirm-remove {
+            background: var(--danger);
+            border-color: var(--danger);
+            color: #fff;
+        }
+        #confirm-remove:hover { background: #b83e3e; }
+
+        /* ---------- Small screens ---------- */
         @media (max-width: 650px) {
-            #sidebar {
-                width: 210px;
-                min-width: 170px;
-            }
-
-            .message {
-                max-width: 85%;
-            }
-
-            .connection-form {
-                flex-direction: column;
-            }
-
-            .connection-form button {
-                height: 34px;
-            }
+            #sidebar { width: 200px; min-width: 160px; }
+            .msg { max-width: 85%; }
+            .connect-row { flex-direction: column; }
+            .connect-row button { height: 34px; }
         }
     </style>
 </head>
 
 <body>
-    <div id="overlay">
-        <div class="setup-card">
+    <!-- ========== Setup overlay ========== -->
+    <div class="overlay" id="setup-overlay">
+        <div class="card">
             <h1>LNChat</h1>
-            <label for="my-id-input">Your ID</label>
-            <input id="my-id-input" type="text" list="account-list" maxlength="40" autocomplete="off" spellcheck="false">
-            <datalist id="account-list"></datalist>
+            <label for="my-id">Your ID</label>
+            <input id="my-id" type="text" maxlength="40" autocomplete="off" spellcheck="false">
             <button id="start-btn" type="button">Start</button>
             <p id="setup-status"></p>
         </div>
     </div>
 
+    <!-- ========== Main UI ========== -->
     <div id="app">
         <aside id="sidebar">
             <div class="sidebar-header">
-                <div class="brand-row">
-                    <h2>LNChat</h2>
-                    <button id="theme-btn" type="button" title="Toggle light mode" aria-label="Toggle light mode">☼</button>
-                </div>
-                <div class="current-user" id="current-user" title="Switch account">Not connected</div>
-                <div class="connection-form">
-                    <input id="remote-id-input" type="text" maxlength="40" autocomplete="off" placeholder="Peer ID">
-                    <button id="add-peer-btn" type="button">Connect</button>
+                <h2>LNChat</h2>
+                <div id="current-user">Not connected</div>
+                <div class="connect-row">
+                    <input id="remote-id" type="text" maxlength="40" autocomplete="off" placeholder="Peer ID">
+                    <button id="connect-btn" type="button">Connect</button>
                 </div>
             </div>
             <ul id="contact-list"></ul>
         </aside>
 
         <main id="main">
-            <section id="chat-window">
+            <section id="chat">
                 <div id="messages">
-                    <div class="empty-message">Select a contact</div>
+                    <div class="empty">Select a contact</div>
                 </div>
-                <div class="input-area">
+                <div class="input-row">
                     <input id="message-input" type="text" autocomplete="off" placeholder="Message..." disabled>
                     <button id="send-btn" type="button" disabled>Send</button>
                 </div>
@@ -441,204 +324,145 @@
         </main>
     </div>
 
+    <!-- ========== Confirm removal overlay ========== -->
+    <div class="overlay" id="confirm-overlay">
+        <div class="card">
+            <p>Remove <strong id="confirm-name"></strong> from your contacts?</p>
+            <div class="confirm-actions">
+                <button id="confirm-cancel" type="button">Cancel</button>
+                <button id="confirm-remove" type="button">Remove</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        let peer = null;
-        let activePeerId = null;
-        let suggestedId = "";
+        // ---------- State ----------
+        let peer = null;               // our PeerJS instance
+        let activePeerId = null;       // which contact's chat is open
+        let pendingRemovalId = null;   // id waiting for confirm
 
-        const connections = {};
+        const connections = {};        // peerId -> RTCDataConnection
 
-        const PRESENCE_INTERVAL = 3000;
-        const PRESENCE_TIMEOUT = 9000;
+        const PRESENCE_INTERVAL = 3000; // how often we send "I'm here"
+        const PRESENCE_TIMEOUT = 9000;  // how long before a peer is offline
 
-        const overlay = document.getElementById("overlay");
-        const setupStatus = document.getElementById("setup-status");
-        const startButton = document.getElementById("start-btn");
-        const myIdInput = document.getElementById("my-id-input");
-        const accountList = document.getElementById("account-list");
-        const remoteIdInput = document.getElementById("remote-id-input");
-        const addPeerButton = document.getElementById("add-peer-btn");
-        const contactList = document.getElementById("contact-list");
-        const messages = document.getElementById("messages");
-        const messageInput = document.getElementById("message-input");
-        const sendButton = document.getElementById("send-btn");
-        const themeButton = document.getElementById("theme-btn");
-        const currentUserEl = document.getElementById("current-user");
+        // ---------- DOM shortcuts ----------
+        const $ = id => document.getElementById(id);
 
-        // cookies
-        function setCookie(name, value, days) {
-            const d = new Date();
-            d.setTime(d.getTime() + days * 864e5);
-            document.cookie = name + "=" + encodeURIComponent(value) + ";expires=" + d.toUTCString() + ";path=/";
+        const setupOverlay   = $("setup-overlay");
+        const setupStatus    = $("setup-status");
+        const startBtn       = $("start-btn");
+        const myIdInput      = $("my-id");
+        const remoteIdInput  = $("remote-id");
+        const connectBtn     = $("connect-btn");
+        const contactList    = $("contact-list");
+        const messagesEl     = $("messages");
+        const messageInput   = $("message-input");
+        const sendBtn        = $("send-btn");
+        const currentUserEl  = $("current-user");
+
+        const confirmOverlay = $("confirm-overlay");
+        const confirmName    = $("confirm-name");
+        const confirmCancel  = $("confirm-cancel");
+        const confirmRemove  = $("confirm-remove");
+
+        // ---------- Helpers ----------
+
+        // Random suggested ID like "quiet-fox-42"
+        function randomId() {
+            const adj = ["quiet","silver","blue","small","curious","calm","local","hidden","soft","north"];
+            const ani = ["fox","badger","owl","otter","raven","hare","lynx","finch","moth","wolf"];
+            const a = adj[Math.floor(Math.random() * adj.length)];
+            const b = ani[Math.floor(Math.random() * ani.length)];
+            return `${a}-${b}-${Math.floor(10 + Math.random() * 90)}`;
         }
 
-        function getCookie(name) {
-            const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-            return match ? decodeURIComponent(match[2]) : null;
-        }
-
-        function loadAccounts() {
-            const raw = getCookie("lnchat_accounts");
-            if (!raw) return [];
-            try {
-                const arr = JSON.parse(raw);
-                return Array.isArray(arr) ? arr : [];
-            } catch (e) {
-                return [];
-            }
-        }
-
-        function saveAccount(id) {
-            const accounts = loadAccounts();
-            if (!accounts.includes(id)) {
-                accounts.push(id);
-                setCookie("lnchat_accounts", JSON.stringify(accounts), 365);
-            }
-            setCookie("lnchat_current", id, 365);
-            refreshAccountList();
-        }
-
-        function refreshAccountList() {
-            accountList.replaceChildren();
-            loadAccounts().forEach(id => {
-                const opt = document.createElement("option");
-                opt.value = id;
-                accountList.appendChild(opt);
-            });
-        }
-
-        function randomUsername() {
-            const adjectives = ["quiet","silver","blue","small","curious","calm","local","hidden","soft","north"];
-            const animals = ["fox","badger","owl","otter","raven","hare","lynx","finch","moth","wolf"];
-            const a = adjectives[Math.floor(Math.random() * adjectives.length)];
-            const b = animals[Math.floor(Math.random() * animals.length)];
-            const n = Math.floor(10 + Math.random() * 90);
-            return `${a}-${b}-${n}`;
-        }
-
-        suggestedId = randomUsername();
-        myIdInput.placeholder = suggestedId;
-
-        refreshAccountList();
-
-        const savedCurrent = getCookie("lnchat_current");
-        if (savedCurrent) {
-            myIdInput.value = savedCurrent;
-        }
-
-        const savedTheme = localStorage.getItem("lnchat-theme");
-        if (savedTheme === "light") {
-            document.body.classList.add("light");
-            themeButton.textContent = "☾";
-            themeButton.title = "Switch to dark mode";
-        }
-
-        themeButton.addEventListener("click", () => {
-            const light = document.body.classList.toggle("light");
-            localStorage.setItem("lnchat-theme", light ? "light" : "dark");
-            themeButton.textContent = light ? "☾" : "☼";
-            themeButton.title = light ? "Switch to dark mode" : "Switch to light mode";
-        });
-
-        function setSetupStatus(text, isError = false) {
+        // Show a status line under the Start button
+        function setStatus(text, isError = false) {
             setupStatus.textContent = text;
-            setupStatus.style.color = isError ? "#d6a3a3" : "var(--muted)";
+            setupStatus.classList.toggle("error", isError);
         }
 
-        function getLocalStatus() {
+        // "away" if tab is hidden, otherwise "online"
+        function localStatus() {
             return document.hidden ? "away" : "online";
         }
 
-        function getStatusClass(id) {
+        // Determine a contact's dot class
+        function statusClass(id) {
             const c = connections[id];
             if (!c || !c.open) return "offline";
-            if (!c.lastPresence || Date.now() - c.lastPresence > PRESENCE_TIMEOUT) return "offline";
+            if (!c.lastSeen || Date.now() - c.lastSeen > PRESENCE_TIMEOUT) return "offline";
             return c.status === "away" ? "away" : "online";
         }
 
-        function getStatusLabel(id) {
-            const s = getStatusClass(id);
+        // Human-readable label for the dot tooltip
+        function statusLabel(id) {
+            const s = statusClass(id);
             return s === "online" ? "Online" : s === "away" ? "Away" : "Offline";
         }
 
-        function sendPresence() {
-            const presence = { type: "presence", status: getLocalStatus(), time: Date.now() };
-            Object.values(connections).forEach(c => { if (c.open) c.send(presence); });
-            updateContactList();
+        // ---------- Presence ----------
+
+        // Tell every open connection whether we're online or away
+        function broadcastPresence() {
+            const msg = { type: "presence", status: localStatus(), time: Date.now() };
+            Object.values(connections).forEach(c => { if (c.open) c.send(msg); });
+            renderContacts();
         }
 
-        setInterval(sendPresence, PRESENCE_INTERVAL);
-        document.addEventListener("visibilitychange", sendPresence);
+        setInterval(broadcastPresence, PRESENCE_INTERVAL);
+        document.addEventListener("visibilitychange", broadcastPresence);
 
-        currentUserEl.addEventListener("click", () => {
-            const cur = getCookie("lnchat_current");
-            myIdInput.value = cur || "";
-            setSetupStatus("");
-            overlay.style.display = "flex";
-            myIdInput.focus();
-        });
+        // ---------- Start our peer ----------
 
-        startButton.addEventListener("click", startPeer);
-
+        startBtn.addEventListener("click", startPeer);
         myIdInput.addEventListener("keydown", e => {
             if (e.key === "Enter") { e.preventDefault(); startPeer(); }
         });
 
-        function cleanupPeer() {
-            Object.values(connections).forEach(c => { try { c.close(); } catch (e) {} });
-            for (const k in connections) delete connections[k];
-            if (peer) {
-                try { peer.destroy(); } catch (e) {}
-                peer = null;
-            }
-            activePeerId = null;
-            clearMessages();
-            showEmptyConversation("Select a contact");
-            updateContactList();
-        }
+        myIdInput.placeholder = randomId();
 
         function startPeer() {
-            const id = (myIdInput.value.trim() || suggestedId).trim();
+            const id = myIdInput.value.trim();
 
+            if (!id) { setStatus("Enter an ID", true); return; }
             if (!/^[A-Za-z0-9_-]{1,40}$/.test(id)) {
-                setSetupStatus("Letters, numbers, - and _ only", true);
-                myIdInput.focus();
+                setStatus("Letters, numbers, - and _ only", true);
                 return;
             }
 
-            cleanupPeer();
-
-            setSetupStatus("Connecting...");
-            startButton.disabled = true;
+            setStatus("Connecting...");
+            startBtn.disabled = true;
             myIdInput.disabled = true;
 
             peer = new Peer(id);
 
+            // Successfully registered with the signaling server
             peer.on("open", actualId => {
-                overlay.style.display = "none";
+                setupOverlay.style.display = "none";
                 document.title = `LNChat — ${actualId}`;
-                saveAccount(actualId);
                 currentUserEl.textContent = `You: ${actualId}`;
-                startButton.disabled = false;
+                startBtn.disabled = false;
                 myIdInput.disabled = false;
             });
 
-            peer.on("connection", c => prepareConnection(c));
+            // Someone is connecting to us
+            peer.on("connection", c => setupConnection(c));
 
+            // Errors
             peer.on("error", err => {
                 console.error("PeerJS error:", err);
 
-                if (overlay.style.display !== "none") {
-                    if (err.type === "unavailable-id") {
-                        setSetupStatus("ID taken", true);
-                    } else {
-                        setSetupStatus("Server error", true);
-                    }
-                    startButton.disabled = false;
+                // Still on the setup screen
+                if (setupOverlay.style.display !== "none") {
+                    setStatus(err.type === "unavailable-id" ? "ID taken" : "Server error", true);
+                    startBtn.disabled = false;
                     myIdInput.disabled = false;
                     return;
                 }
 
+                // Tried to connect to a peer that isn't online
                 if (err.type === "peer-unavailable") {
                     remoteIdInput.placeholder = "Not reachable";
                     setTimeout(() => { remoteIdInput.placeholder = "Peer ID"; }, 2500);
@@ -646,128 +470,163 @@
             });
         }
 
-        addPeerButton.addEventListener("click", connectToPeer);
+        // ---------- Connect to another peer ----------
+
+        connectBtn.addEventListener("click", connectToPeer);
         remoteIdInput.addEventListener("keydown", e => {
             if (e.key === "Enter") connectToPeer();
         });
 
         function connectToPeer() {
-            const remoteId = remoteIdInput.value.trim();
-            if (!peer || !remoteId || remoteId === peer.id) return;
-            if (connections[remoteId]) { selectContact(remoteId); return; }
+            const id = remoteIdInput.value.trim();
+            if (!peer || !id || id === peer.id) return;
 
-            const c = peer.connect(remoteId, { reliable: true });
-            prepareConnection(c);
+            // Already connected? Just open the chat.
+            if (connections[id]) { selectContact(id); return; }
+
+            const c = peer.connect(id, { reliable: true });
+            setupConnection(c);
             remoteIdInput.value = "";
         }
 
-        function prepareConnection(c) {
+        // ---------- Shared connection setup (incoming + outgoing) ----------
+
+        function setupConnection(c) {
             const id = c.peer;
             if (connections[id] === c) return;
 
+            // Link is ready
             c.on("open", () => {
                 connections[id] = c;
                 c.status = "online";
-                c.lastPresence = Date.now();
-                updateContactList();
-                c.send({ type: "presence", status: getLocalStatus(), time: Date.now() });
+                c.lastSeen = Date.now();
+
+                renderContacts();
+                c.send({ type: "presence", status: localStatus(), time: Date.now() });
+
+                // Auto-select first contact
                 if (!activePeerId) selectContact(id);
             });
 
+            // Incoming data: either presence or a plain-text chat message
             c.on("data", data => {
                 if (data && data.type === "presence") {
                     c.status = data.status;
-                    c.lastPresence = Date.now();
-                    updateContactList();
+                    c.lastSeen = Date.now();
+                    renderContacts();
                     return;
                 }
                 if (typeof data === "string") appendMessage(data, "them", id);
             });
 
+            // Link closed: keep the contact in the list, just mark offline
             c.on("close", () => {
-                const removed = c.removedByUser === true;
-                if (connections[id] === c) delete connections[id];
-                if (activePeerId === id && !removed) {
+                c.open = false;
+                c.status = "offline";
+
+                if (activePeerId === id) {
                     activePeerId = null;
-                    showEmptyConversation("Connection closed");
+                    showEmpty("Connection closed");
                 }
-                updateContactList();
+                renderContacts();
             });
 
             c.on("error", err => console.error(`Connection error ${id}:`, err));
         }
 
-        function removeContact(id) {
+        // ---------- Remove contact (with confirm) ----------
+
+        function askRemove(id) {
+            pendingRemovalId = id;
+            confirmName.textContent = id;
+            confirmOverlay.classList.add("show");
+            confirmRemove.focus();
+        }
+
+        function closeConfirm() {
+            pendingRemovalId = null;
+            confirmOverlay.classList.remove("show");
+        }
+
+        confirmCancel.addEventListener("click", closeConfirm);
+        confirmOverlay.addEventListener("click", e => {
+            if (e.target === confirmOverlay) closeConfirm();
+        });
+        document.addEventListener("keydown", e => {
+            if (e.key === "Escape" && confirmOverlay.classList.contains("show")) closeConfirm();
+        });
+
+        confirmRemove.addEventListener("click", () => {
+            const id = pendingRemovalId;
+            closeConfirm();
+            if (!id) return;
+
             const c = connections[id];
-            if (!c) return;
-            c.removedByUser = true;
-            try { c.close(); } catch (e) {}
+            if (c) { try { c.close(); } catch (_) {} }
             delete connections[id];
+
             if (activePeerId === id) {
                 activePeerId = null;
-                showEmptyConversation("Contact removed");
+                showEmpty("Contact removed");
             }
-            updateContactList();
-        }
+            renderContacts();
+        });
 
-        setInterval(() => {
-            let changed = false;
-            Object.keys(connections).forEach(id => {
-                const c = connections[id];
-                if (c.lastPresence && Date.now() - c.lastPresence > PRESENCE_TIMEOUT && c.status !== "offline") {
-                    c.status = "offline";
-                    changed = true;
-                }
-            });
-            if (changed) updateContactList();
-        }, 2000);
+        // ---------- Contact list rendering ----------
 
-        function updateContactList() {
+        function renderContacts() {
             contactList.replaceChildren();
 
-            Object.keys(connections)
-                .sort((a, b) => a.localeCompare(b))
-                .forEach(id => {
-                    const li = document.createElement("li");
-                    li.className = "contact-item";
-                    if (id === activePeerId) li.classList.add("active");
+            Object.keys(connections).sort().forEach(id => {
+                const li = document.createElement("li");
+                li.className = "contact" + (id === activePeerId ? " active" : "");
 
-                    const name = document.createElement("span");
-                    name.className = "contact-name";
-                    name.textContent = id;
+                const name = document.createElement("span");
+                name.className = "contact-name";
+                name.textContent = id;
 
-                    const dot = document.createElement("span");
-                    dot.className = `status-dot ${getStatusClass(id)}`;
-                    dot.title = getStatusLabel(id);
+                const dot = document.createElement("span");
+                dot.className = "dot " + statusClass(id);
+                dot.title = statusLabel(id);
 
-                    const rm = document.createElement("button");
-                    rm.type = "button";
-                    rm.className = "remove-contact";
-                    rm.textContent = "×";
-                    rm.title = `Remove ${id}`;
-                    rm.setAttribute("aria-label", `Remove contact ${id}`);
-                    rm.addEventListener("click", e => {
-                        e.stopPropagation();
-                        removeContact(id);
-                    });
-
-                    li.append(name, dot, rm);
-                    li.addEventListener("click", () => selectContact(id));
-                    contactList.appendChild(li);
+                const remove = document.createElement("button");
+                remove.className = "remove";
+                remove.textContent = "×";
+                remove.title = `Remove ${id}`;
+                remove.addEventListener("click", e => {
+                    e.stopPropagation();     // don't also select the contact
+                    askRemove(id);
                 });
+
+                li.append(name, dot, remove);
+                li.addEventListener("click", () => selectContact(id));
+                contactList.appendChild(li);
+            });
         }
+
+        // ---------- Chat selection ----------
 
         function selectContact(id) {
             if (!connections[id]) return;
             activePeerId = id;
+
             clearMessages();
-            messageInput.disabled = false;
-            sendButton.disabled = false;
-            messageInput.focus();
-            updateContactList();
+
+            const c = connections[id];
+            if (c.open) {
+                messageInput.disabled = false;
+                sendBtn.disabled = false;
+                messageInput.focus();
+            } else {
+                showEmpty("Offline — reconnect to chat");
+            }
+
+            renderContacts();
         }
 
-        sendButton.addEventListener("click", sendMessage);
+        // ---------- Sending messages ----------
+
+        sendBtn.addEventListener("click", sendMessage);
         messageInput.addEventListener("keydown", e => {
             if (e.key === "Enter") { e.preventDefault(); sendMessage(); }
         });
@@ -775,55 +634,77 @@
         function sendMessage() {
             const text = messageInput.value.trim();
             if (!text || !activePeerId) return;
+
             const c = connections[activePeerId];
             if (!c || !c.open) return;
 
-            c.send(text);
+            c.send(text);                       // plain string = chat message
             appendMessage(text, "me", "You");
             messageInput.value = "";
             messageInput.focus();
         }
 
+        // ---------- Message rendering ----------
+
         function clearMessages() {
-            messages.replaceChildren();
+            messagesEl.replaceChildren();
         }
 
-        function showEmptyConversation(text) {
+        function showEmpty(text) {
             clearMessages();
             const div = document.createElement("div");
-            div.className = "empty-message";
+            div.className = "empty";
             div.textContent = text;
-            messages.appendChild(div);
+            messagesEl.appendChild(div);
+
             messageInput.disabled = true;
-            sendButton.disabled = true;
+            sendBtn.disabled = true;
         }
 
         function appendMessage(text, side, sender) {
             const now = new Date();
 
             const msg = document.createElement("div");
-            msg.className = `message ${side}`;
+            msg.className = "msg " + side;
 
             const s = document.createElement("span");
-            s.className = "message-sender";
+            s.className = "msg-sender";
             s.textContent = sender;
 
             const t = document.createElement("span");
             t.textContent = text;
 
             const time = document.createElement("span");
-            time.className = "message-time";
-            time.textContent = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+            time.className = "msg-time";
+            time.textContent = now.toLocaleTimeString([], {
+                hour: "2-digit", minute: "2-digit", second: "2-digit"
+            });
             time.title = now.toLocaleString();
 
             msg.append(s, t, time);
 
-            const ph = messages.querySelector(".empty-message");
-            if (ph) ph.remove();
+            // Remove the "Select a contact" placeholder if present
+            const placeholder = messagesEl.querySelector(".empty");
+            if (placeholder) placeholder.remove();
 
-            messages.appendChild(msg);
-            messages.scrollTop = messages.scrollHeight;
+            messagesEl.appendChild(msg);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
         }
+
+        // ---------- Periodic offline sweep ----------
+        // Marks contacts offline if we haven't heard from them in a while.
+        // Does NOT remove them — that's the user's job via the × button.
+        setInterval(() => {
+            let changed = false;
+            Object.keys(connections).forEach(id => {
+                const c = connections[id];
+                if (c.lastSeen && Date.now() - c.lastSeen > PRESENCE_TIMEOUT && c.status !== "offline") {
+                    c.status = "offline";
+                    changed = true;
+                }
+            });
+            if (changed) renderContacts();
+        }, 2000);
     </script>
 </body>
 </html>
